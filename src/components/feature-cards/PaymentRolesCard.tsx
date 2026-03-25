@@ -1,63 +1,53 @@
-import { Shield, ArrowUpRight, Building2, ChevronDown, Info } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
+import { Trophy, ArrowUpRight } from "lucide-react"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+
+const leaderboard = [
+  { place: "🥇", name: "CryptoKing99", amount: "250 000 ₽", color: "bg-yellow-600" },
+  { place: "🥈", name: "LuckyStrike", amount: "180 000 ₽", color: "bg-gray-500" },
+  { place: "🥉", name: "AcePlayer", amount: "95 000 ₽", color: "bg-amber-700" },
+]
 
 export function PaymentRolesCard() {
   return (
     <div className="rounded-2xl bg-[#141414] border border-[#262626] p-6 flex flex-col">
       <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-[#1f1f1f] border border-[#2a2a2a]">
-        <Shield className="h-5 w-5 text-gray-400" />
+        <Trophy className="h-5 w-5 text-gray-400" />
       </div>
 
-      <h3 className="mb-2 text-lg font-semibold text-white">Управление правами доступа</h3>
-      <p className="mb-4 text-sm text-gray-400">Устанавливайте лимиты, согласования и распределяйте права по команде</p>
+      <h3 className="mb-2 text-lg font-semibold text-white">Еженедельные турниры</h3>
+      <p className="mb-4 text-sm text-gray-400">Соревнуйся с игроками со всего мира и борись за призовой фонд до 1 000 000 ₽</p>
 
       <a href="#" className="mb-6 inline-flex items-center text-sm text-gray-400 hover:text-white transition-colors">
-        Подробнее <ArrowUpRight className="ml-1 h-4 w-4" />
+        Все турниры <ArrowUpRight className="ml-1 h-4 w-4" />
       </a>
 
       <div className="mt-auto space-y-4 rounded-xl bg-[#1a1a1a] border border-[#262626] p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src="/professional-man-portrait.png" alt="Алексей Петров" />
-              <AvatarFallback className="bg-gray-600 text-white">АП</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="text-sm font-medium text-white">Алексей Петров</p>
-              <p className="text-xs text-gray-500">alexey@finpotok.ru</p>
-            </div>
-          </div>
-          <button className="text-sm text-violet-400 hover:text-violet-300">Изменить</button>
+          <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Топ игроки недели</p>
+          <span className="text-xs text-violet-400">Приз: 1 000 000 ₽</span>
         </div>
 
-        <div>
-          <label className="mb-2 flex items-center gap-1 text-xs text-gray-400">
-            Способ оплаты <Info className="h-3 w-3" />
-          </label>
-          <div className="flex items-center justify-between rounded-lg bg-[#0f0f0f] border border-[#262626] px-3 py-2.5">
-            <span className="text-sm text-white">Банковский перевод</span>
-            <ChevronDown className="h-4 w-4 text-gray-500" />
-          </div>
-          <p className="mt-1 text-xs text-gray-500">Перевод в тот же день, без комиссии.</p>
-        </div>
-
-        <div className="border-t border-dashed border-[#333] pt-4">
-          <div className="flex items-center justify-between">
+        {leaderboard.map((player, index) => (
+          <div key={index} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0f0f0f] border border-[#262626]">
-                <Building2 className="h-5 w-5 text-gray-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-white">ООО «Финансовый Партнёр»</p>
-                <p className="text-xs text-gray-500">Счёт ••9876 · БИК ••5432</p>
-              </div>
+              <span className="text-lg">{player.place}</span>
+              <Avatar className="h-9 w-9">
+                <AvatarFallback className={`${player.color} text-white text-xs`}>
+                  {player.name.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <p className="text-sm font-medium text-white">{player.name}</p>
             </div>
-            <button className="text-sm text-violet-400 hover:text-violet-300">Изменить</button>
+            <span className="text-sm text-violet-400 font-semibold">{player.amount}</span>
+          </div>
+        ))}
+
+        <div className="border-t border-dashed border-[#333] pt-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-gray-500">До конца турнира</p>
+            <span className="text-xs font-mono text-white bg-[#0f0f0f] px-2 py-1 rounded border border-[#333]">02:14:38</span>
           </div>
         </div>
-
-        <Button className="w-full bg-[#252525] text-gray-400 hover:bg-[#2a2a2a] hover:text-white">Продолжить</Button>
       </div>
     </div>
   )
