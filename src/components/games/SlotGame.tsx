@@ -1,205 +1,172 @@
-import { useState, useEffect, useRef } from 'react'
-import { Button } from '@/components/ui/button'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useAppStore } from '@/store/useAppStore'
 
-const SYMBOLS = [
-  { id: 'seven', emoji: '7️⃣', name: 'Семёрка', mult: 50, color: 'text-red-400' },
-  { id: 'diamond', emoji: '💎', name: 'Бриллиант', mult: 20, color: 'text-cyan-400' },
-  { id: 'crown', emoji: '👑', name: 'Корона', mult: 15, color: 'text-yellow-400' },
-  { id: 'star', emoji: '⭐', name: 'Звезда', mult: 10, color: 'text-yellow-300' },
-  { id: 'cherry', emoji: '🍒', name: 'Вишня', mult: 8, color: 'text-red-300' },
-  { id: 'lemon', emoji: '🍋', name: 'Лимон', mult: 5, color: 'text-yellow-200' },
-  { id: 'grape', emoji: '🍇', name: 'Виноград', mult: 4, color: 'text-purple-400' },
-  { id: 'bell', emoji: '🔔', name: 'Колокол', mult: 6, color: 'text-orange-400' },
-  { id: 'horseshoe', emoji: '🧲', name: 'Подкова', mult: 3, color: 'text-gray-400' },
-  { id: 'watermelon', emoji: '🍉', name: 'Арбуз', mult: 3, color: 'text-green-400' },
+const SYMS = [
+  { id: '7',    emoji: '7️⃣', mult3: 100, mult2: 5  },
+  { id: 'bar3', emoji: '📊', mult3: 50,  mult2: 3  },
+  { id: 'diam', emoji: '💎', mult3: 30,  mult2: 2  },
+  { id: 'crown',emoji: '👑', mult3: 20,  mult2: 2  },
+  { id: 'star', emoji: '⭐', mult3: 15,  mult2: 1  },
+  { id: 'bell', emoji: '🔔', mult3: 10,  mult2: 1  },
+  { id: 'cherry',emoji:'🍒', mult3: 8,   mult2: 1  },
+  { id: 'lemon',emoji: '🍋', mult3: 5,   mult2: 0  },
+  { id: 'grape',emoji: '🍇', mult3: 4,   mult2: 0  },
+  { id: 'water',emoji: '🍉', mult3: 3,   mult2: 0  },
 ]
 
-const REEL_SIZE = 20
-const VISIBLE = 3
+// Взвешенный пул — редкие символы реже
+const POOL = [
+  '7','7',
+  'bar3','bar3','bar3',
+  'diam','diam','diam','diam',
+  'crown','crown','crown','crown','crown',
+  'star','star','star','star','star','star',
+  'bell','bell','bell','bell','bell','bell','bell',
+  'cherry','cherry','cherry','cherry','cherry','cherry','cherry','cherry',
+  'lemon','lemon','lemon','lemon','lemon','lemon','lemon','lemon','lemon',
+  'grape','grape','grape','grape','grape','grape','grape','grape','grape','grape',
+  'water','water','water','water','water','water','water','water','water','water',
+]
 
-function buildReel(): string[] {
-  const reel: string[] = []
-  for (let i = 0; i < REEL_SIZE; i++) {
-    const weights = [1, 2, 2, 3, 4, 5, 5, 4, 6, 6]
-    const total = weights.reduce((a, b) => a + b, 0)
-    let r = Math.random() * total
-    let idx = 0
-    for (let j = 0; j < weights.length; j++) {
-      r -= weights[j]
-      if (r <= 0) { idx = j; break }
-    }
-    reel.push(SYMBOLS[idx].id)
-  }
-  return reel
-}
+function randSym() { return POOL[Math.floor(Math.random() * POOL.length)] }
+function getSym(id: string) { return SYMS.find(s => s.id === id)! }
 
-function getSymbol(id: string) {
-  return SYMBOLS.find((s) => s.id === id) || SYMBOLS[0]
-}
-
-function checkWin(rows: string[][], bet: number): { amount: number; lines: number[] } {
-  let amount = 0
-  const lines: number[] = []
-  for (let row = 0; row < 3; row++) {
-    const line = rows[row]
-    if (line[0] === line[1] && line[1] === line[2]) {
-      const sym = getSymbol(line[0])
-      amount += bet * sym.mult
-      lines.push(row)
-    } else if (line[0] === line[1]) {
-      amount += bet * Math.floor(getSymbol(line[0]).mult / 4)
-    } else if (line[1] === line[2]) {
-      amount += bet * Math.floor(getSymbol(line[1]).mult / 4)
+function calcWin(grid: string[][], bet: number): { total: number; lines: {row: number; mult: number; sym: string}[] } {
+  const lines: {row: number; mult: number; sym: string}[] = []
+  let total = 0
+  for (let r = 0; r < 3; r++) {
+    const row = [grid[0][r], grid[1][r], grid[2][r]]
+    if (row[0] === row[1] && row[1] === row[2]) {
+      const s = getSym(row[0])
+      const win = bet * s.mult3
+      total += win
+      lines.push({ row: r, mult: s.mult3, sym: row[0] })
+    } else if (row[0] === row[1]) {
+      const s = getSym(row[0])
+      if (s.mult2 > 0) { total += bet * s.mult2; lines.push({ row: r, mult: s.mult2, sym: row[0] }) }
+    } else if (row[1] === row[2]) {
+      const s = getSym(row[1])
+      if (s.mult2 > 0) { total += bet * s.mult2; lines.push({ row: r, mult: s.mult2, sym: row[1] }) }
     }
   }
-  // Диагонали
-  const grid = rows
-  if (grid[0][0] === grid[1][1] && grid[1][1] === grid[2][2]) {
-    amount += bet * getSymbol(grid[1][1]).mult
-    lines.push(3)
-  }
-  if (grid[2][0] === grid[1][1] && grid[1][1] === grid[0][2]) {
-    amount += bet * getSymbol(grid[1][1]).mult
-    lines.push(4)
-  }
-  return { amount, lines }
+  return { total, lines }
 }
 
-interface ReelState {
-  symbols: string[]
-  offset: number
-  spinning: boolean
-  finalOffset: number
+const ROWS = 3
+const REEL_LEN = 30
+
+function makeReel(): string[] {
+  return Array.from({ length: REEL_LEN }, () => randSym())
 }
 
-const CHIP_BETS = [50, 100, 250, 500]
+const BETS = [50, 100, 250, 500, 1000, 2500]
 
 export function SlotGame({ onClose, gameName = 'Book of Dead' }: { onClose: () => void; gameName?: string }) {
   const { user, updateBalance } = useAppStore()
   const [bet, setBet] = useState(100)
-  const [reels, setReels] = useState<ReelState[]>(() =>
-    Array.from({ length: 3 }, () => ({ symbols: buildReel(), offset: 0, spinning: false, finalOffset: 0 }))
-  )
+  const [reels] = useState<string[][]>(() => [makeReel(), makeReel(), makeReel()])
+  const [offsets, setOffsets] = useState([0, 0, 0])
+  const [display, setDisplay] = useState<string[][]>(() => [[randSym(),randSym(),randSym()],[randSym(),randSym(),randSym()],[randSym(),randSym(),randSym()]])
   const [spinning, setSpinning] = useState(false)
-  const [result, setResult] = useState<{ amount: number; lines: number[] } | null>(null)
+  const [winLines, setWinLines] = useState<{row:number;mult:number;sym:string}[]>([])
   const [message, setMessage] = useState('')
-  const [autoSpin, setAutoSpin] = useState(false)
+  const [lastWin, setLastWin] = useState(0)
+  const [autoOn, setAutoOn] = useState(false)
   const autoRef = useRef(false)
-  const animFrames = useRef<number[]>([])
-  const [displaySymbols, setDisplaySymbols] = useState<string[][]>(() =>
-    Array.from({ length: 3 }, () => ['cherry', 'lemon', 'grape'])
-  )
-  const [winLines, setWinLines] = useState<number[]>([])
+  const rafRef = useRef<number>(0)
+  const speedRef = useRef([0, 0, 0])
+  const posRef = useRef([0, 0, 0])
+  const stoppedRef = useRef([false, false, false])
+  const finalRef = useRef([[0,1,2],[0,1,2],[0,1,2]])
 
-  useEffect(() => {
-    return () => { autoRef.current = false; animFrames.current.forEach(cancelAnimationFrame) }
-  }, [])
+  const getVisible = useCallback((reelIdx: number, offset: number): string[] => {
+    const r = reels[reelIdx]
+    const start = Math.floor(offset) % REEL_LEN
+    return [r[(start) % REEL_LEN], r[(start+1) % REEL_LEN], r[(start+2) % REEL_LEN]]
+  }, [reels])
 
-  const getVisibleSymbols = (reel: string[], offset: number): string[] => {
-    const len = reel.length
-    const start = Math.floor(offset) % len
-    return [
-      reel[(start) % len],
-      reel[(start + 1) % len],
-      reel[(start + 2) % len],
-    ]
-  }
-
-  const doSpin = () => {
+  const doSpin = useCallback(() => {
     if (spinning) return
     if ((user?.balance || 0) < bet) { setMessage('❌ Недостаточно средств'); return }
     updateBalance(-bet)
     setSpinning(true)
-    setResult(null)
-    setMessage('')
     setWinLines([])
+    setMessage('')
+    setLastWin(0)
 
-    const newReels = reels.map((r) => ({ ...r, symbols: buildReel(), spinning: true }))
-    const finalOffsets = newReels.map(() => Math.floor(Math.random() * REEL_SIZE))
-    setReels(newReels)
+    // Выбираем финальные позиции
+    const finals = [0,1,2].map(() => Math.floor(Math.random() * REEL_LEN))
+    finalRef.current = finals.map((f, i) => [reels[i][f % REEL_LEN], reels[i][(f+1)%REEL_LEN], reels[i][(f+2)%REEL_LEN]] as unknown as number[])
+    const finalSyms = finals.map((f, i) => [reels[i][f%REEL_LEN], reels[i][(f+1)%REEL_LEN], reels[i][(f+2)%REEL_LEN]])
 
-    const startTime = Date.now()
-    const stopTimes = [1800, 2400, 3000]
-    const stopped = [false, false, false]
-    const currentOffsets = newReels.map((r) => r.offset)
+    stoppedRef.current = [false, false, false]
+    speedRef.current = [1.2, 1.2, 1.2]
+    posRef.current = [...offsets]
+
+    const stopTimes = [1500, 2200, 2900]
+    const startT = Date.now()
 
     const animate = () => {
       const now = Date.now()
-      const elapsed = now - startTime
+      const elapsed = now - startT
 
-      setDisplaySymbols((prev) => {
-        const next = prev.map((col, i) => {
-          if (stopped[i]) return col
-          currentOffsets[i] = (currentOffsets[i] + 0.5) % REEL_SIZE
-          return getVisibleSymbols(newReels[i].symbols, currentOffsets[i])
-        })
-        return next
-      })
-
-      stopTimes.forEach((t, i) => {
-        if (!stopped[i] && elapsed >= t) {
-          stopped[i] = true
-          const final = getVisibleSymbols(newReels[i].symbols, finalOffsets[i])
-          setDisplaySymbols((prev) => prev.map((col, j) => j === i ? final : col))
+      const newPos = posRef.current.map((p, i) => {
+        if (stoppedRef.current[i]) return p
+        if (elapsed >= stopTimes[i] && !stoppedRef.current[i]) {
+          stoppedRef.current[i] = true
+          return finals[i]
         }
+        return (p + speedRef.current[i]) % REEL_LEN
       })
 
-      if (!stopped[2]) {
-        animFrames.current[0] = requestAnimationFrame(animate)
-      } else {
-        setTimeout(() => {
-          const grid = [0, 1, 2].map((col) => getVisibleSymbols(newReels[col].symbols, finalOffsets[col]))
-          const rows: string[][] = [
-            [grid[0][0], grid[1][0], grid[2][0]],
-            [grid[0][1], grid[1][1], grid[2][1]],
-            [grid[0][2], grid[1][2], grid[2][2]],
-          ]
-          const win = checkWin(rows, bet)
-          setSpinning(false)
-          setWinLines(win.lines)
-          if (win.amount > 0) {
-            updateBalance(win.amount)
-            setMessage(`🎉 ВЫИГРЫШ ${win.amount.toLocaleString()} ₽!`)
-            setResult({ amount: win.amount, lines: win.lines })
-          } else {
-            setMessage('Попробуй ещё раз!')
-            setResult({ amount: 0, lines: [] })
-            if (autoRef.current) {
-              setTimeout(() => { if (autoRef.current) doSpin() }, 800)
-            }
-          }
-          if (win.amount > 0 && autoRef.current) {
-            setTimeout(() => { if (autoRef.current) doSpin() }, 1200)
-          }
-        }, 200)
+      posRef.current = newPos
+      setDisplay(newPos.map((p, i) => getVisible(i, p)))
+      setOffsets(newPos)
+
+      if (stoppedRef.current.every(Boolean)) {
+        // Финальный кадр
+        setDisplay(finalSyms)
+        const grid = finalSyms
+        const { total, lines } = calcWin(grid, bet)
+        setWinLines(lines)
+        setLastWin(total)
+        if (total > 0) {
+          updateBalance(total)
+          setMessage(`🎉 ВЫИГРЫШ! +${total.toLocaleString()} ₽ (x${(total/bet).toFixed(1)})`)
+        } else {
+          setMessage('Попробуй снова!')
+          if (autoRef.current) setTimeout(() => { if (autoRef.current) doSpin() }, 600)
+        }
+        if (total > 0 && autoRef.current) setTimeout(() => { if (autoRef.current) doSpin() }, 1000)
+        setSpinning(false)
+        return
       }
+
+      rafRef.current = requestAnimationFrame(animate)
     }
 
-    animFrames.current[0] = requestAnimationFrame(animate)
-  }
+    rafRef.current = requestAnimationFrame(animate)
+  }, [spinning, user, bet, offsets, reels, getVisible, updateBalance])
+
+  useEffect(() => { return () => { cancelAnimationFrame(rafRef.current); autoRef.current = false } }, [])
 
   const toggleAuto = () => {
-    const next = !autoSpin
-    setAutoSpin(next)
+    const next = !autoOn
+    setAutoOn(next)
     autoRef.current = next
     if (next && !spinning) doSpin()
   }
 
-  const winMultiplier = result ? (result.amount / bet) : 0
-
   return (
     <div className="fixed inset-0 z-50 bg-[#080808] overflow-y-auto">
-      <div className="min-h-screen p-4 flex flex-col max-w-lg mx-auto">
+      <div className="min-h-screen p-4 flex flex-col max-w-md mx-auto">
         {/* Шапка */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <button onClick={onClose} className="text-gray-400 hover:text-white bg-[#1a1a1a] border border-[#333] rounded-xl p-2">
-              ← Назад
-            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-white bg-[#1a1a1a] border border-[#333] rounded-xl p-2 text-sm">← Назад</button>
             <div>
               <h1 className="text-white font-bold text-lg">🎰 {gameName}</h1>
-              <p className="text-gray-500 text-xs">RTP 96.2% · Play'n GO</p>
+              <p className="text-gray-500 text-xs">RTP 96.5% · 3 барабана · 3 линии</p>
             </div>
           </div>
           <div className="bg-[#1a1a1a] border border-[#333] rounded-xl px-3 py-2 text-white font-bold text-sm">
@@ -207,29 +174,30 @@ export function SlotGame({ onClose, gameName = 'Book of Dead' }: { onClose: () =
           </div>
         </div>
 
-        {/* Слот-машина */}
-        <div className="bg-gradient-to-b from-[#1a0a2e] to-[#0d0d1a] border-2 border-violet-800/60 rounded-3xl p-5 mb-4 shadow-2xl shadow-violet-900/40">
-          {/* Декоративная рамка */}
+        {/* Машина */}
+        <div className="bg-gradient-to-b from-[#1a0630] to-[#0d0518] border-2 border-violet-700/50 rounded-3xl p-5 mb-4 shadow-2xl shadow-violet-900/50">
           <div className="text-center mb-3">
-            <span className="text-yellow-400 text-lg font-bold tracking-widest">✦ LUCKY ACE ✦</span>
+            <span className="text-yellow-400 font-black tracking-widest text-sm">✦ LUCKY ACE SLOTS ✦</span>
           </div>
 
           {/* Барабаны */}
-          <div className="flex gap-2 mb-3">
-            {[0, 1, 2].map((col) => (
-              <div key={col} className={`flex-1 bg-[#0a0a16] border-2 rounded-xl overflow-hidden transition-all ${
-                spinning ? 'border-violet-500/50' : winLines.length > 0 ? 'border-yellow-400/60' : 'border-[#2a2a4a]'
+          <div className="flex gap-2 mb-2">
+            {[0,1,2].map(col => (
+              <div key={col} className={`flex-1 bg-[#06020f] border-2 rounded-2xl overflow-hidden transition-all duration-300 ${
+                spinning && !stoppedRef.current[col] ? 'border-violet-500/80 shadow-inner shadow-violet-900' :
+                winLines.length > 0 ? 'border-yellow-500/60' : 'border-violet-900/40'
               }`}>
-                {displaySymbols[col].map((symId, row) => {
-                  const sym = getSymbol(symId)
-                  const isWinLine = winLines.includes(row)
+                {display[col].map((symId, row) => {
+                  const sym = getSym(symId)
+                  const isWin = winLines.some(l => l.row === row)
                   return (
                     <div key={row} className={`flex items-center justify-center h-20 transition-all ${
-                      isWinLine ? 'bg-yellow-400/10 border-y border-yellow-400/30' : ''
-                    } ${spinning ? 'blur-[1px]' : ''}`}>
-                      <span className={`text-4xl transition-transform ${spinning ? 'scale-90' : isWinLine ? 'scale-110' : 'scale-100'}`}>
-                        {sym.emoji}
-                      </span>
+                      isWin ? 'bg-yellow-400/15' : ''
+                    } ${spinning && !stoppedRef.current[col] ? 'blur-[1.5px]' : ''}`}>
+                      <span className={`text-4xl select-none transition-transform duration-200 ${
+                        isWin ? 'scale-125 filter drop-shadow-[0_0_8px_rgba(250,204,21,0.8)]' :
+                        spinning ? 'scale-90' : 'scale-100'
+                      }`}>{sym.emoji}</span>
                     </div>
                   )
                 })}
@@ -238,46 +206,47 @@ export function SlotGame({ onClose, gameName = 'Book of Dead' }: { onClose: () =
           </div>
 
           {/* Линии выплат */}
-          <div className="flex justify-center gap-1 mb-3">
-            {[0,1,2].map((i) => (
-              <div key={i} className={`h-0.5 flex-1 rounded-full transition-all ${winLines.includes(i) ? 'bg-yellow-400' : 'bg-[#333]'}`} />
+          <div className="flex flex-col gap-1">
+            {[0,1,2].map(r => (
+              <div key={r} className={`h-0.5 rounded-full transition-all ${winLines.some(l=>l.row===r) ? 'bg-yellow-400 shadow shadow-yellow-400/50' : 'bg-[#2a1a4a]'}`}/>
             ))}
           </div>
 
-          {/* Сообщение о выигрыше */}
-          <div className={`text-center h-10 flex items-center justify-center`}>
+          {/* Выигрышное сообщение */}
+          <div className="h-12 flex items-center justify-center mt-2">
             {message ? (
-              <span className={`text-sm font-bold ${message.includes('🎉') ? 'text-yellow-400' : 'text-gray-400'}`}>
+              <div className={`text-sm font-bold px-3 py-1 rounded-xl ${message.includes('🎉') ? 'text-yellow-400 bg-yellow-400/10 border border-yellow-500/20' : 'text-gray-500'}`}>
                 {message}
-                {winMultiplier > 0 && <span className="ml-2 text-xs bg-yellow-400/20 text-yellow-300 px-2 py-0.5 rounded-full">x{winMultiplier}</span>}
-              </span>
-            ) : (
-              <span className="text-gray-600 text-sm">Нажми SPIN!</span>
-            )}
+                {lastWin > 0 && <span className="ml-2 text-xs bg-yellow-600/30 text-yellow-300 px-1.5 py-0.5 rounded-full">x{(lastWin/bet).toFixed(1)}</span>}
+              </div>
+            ) : <span className="text-gray-700 text-sm">Нажми SPIN!</span>}
           </div>
         </div>
 
-        {/* Таблица выплат (свёрнутая) */}
-        <div className="bg-[#141414] border border-[#262626] rounded-xl p-3 mb-4">
-          <p className="text-gray-500 text-xs mb-2 font-medium uppercase tracking-wide">Таблица выплат (3 одинаковых)</p>
-          <div className="grid grid-cols-2 gap-1">
-            {SYMBOLS.slice(0, 6).map((s) => (
+        {/* Таблица выплат */}
+        <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-3 mb-4">
+          <p className="text-gray-500 text-xs font-medium uppercase tracking-wide mb-2">Таблица выплат × ставку</p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+            {SYMS.map(s => (
               <div key={s.id} className="flex items-center justify-between text-xs">
-                <span>{s.emoji} {s.name}</span>
-                <span className="text-yellow-400 font-bold">x{s.mult}</span>
+                <span className="text-gray-300">{s.emoji} × 3</span>
+                <span className="text-yellow-400 font-bold">x{s.mult3}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Ставка */}
-        <div className="flex items-center justify-between bg-[#141414] border border-[#262626] rounded-xl p-3 mb-4">
-          <span className="text-gray-400 text-sm">Ставка:</span>
-          <div className="flex gap-2">
-            {CHIP_BETS.map((v) => (
+        <div className="bg-[#141414] border border-[#1e1e1e] rounded-xl p-3 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-gray-400 text-sm">Ставка:</span>
+            <span className="text-white font-bold">{bet.toLocaleString()} ₽</span>
+          </div>
+          <div className="grid grid-cols-6 gap-1.5">
+            {BETS.map(v => (
               <button key={v} onClick={() => setBet(v)} disabled={spinning}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${bet === v ? 'bg-violet-600 text-white' : 'bg-[#1a1a1a] text-gray-400 border border-[#333] hover:border-violet-500'}`}>
-                {v}₽
+                className={`py-2 rounded-lg text-xs font-bold transition-all ${bet===v ? 'bg-violet-600 text-white' : 'bg-[#0f0f0f] border border-[#333] text-gray-400 hover:border-violet-500 disabled:opacity-40'}`}>
+                {v>=1000?`${v/1000}K`:v}
               </button>
             ))}
           </div>
@@ -285,18 +254,17 @@ export function SlotGame({ onClose, gameName = 'Book of Dead' }: { onClose: () =
 
         {/* Кнопки */}
         <div className="flex gap-3">
-          <Button onClick={toggleAuto}
-            className={`flex-1 rounded-xl py-5 font-bold text-sm ${autoSpin ? 'bg-orange-600 hover:bg-orange-700' : 'bg-[#1a1a1a] border border-[#333] text-gray-300 hover:bg-[#222] hover:text-white'}`}>
-            {autoSpin ? '⏹ Стоп' : '🔁 Авто'}
-          </Button>
-          <Button onClick={doSpin} disabled={spinning}
-            className="flex-[2] bg-gradient-to-r from-violet-600 to-violet-800 hover:from-violet-500 hover:to-violet-700 text-white rounded-xl py-5 text-lg font-black disabled:opacity-50 shadow-lg shadow-violet-900/40">
-            {spinning ? '🌀 ...' : '▶ SPIN'}
-          </Button>
-          <Button onClick={() => { setBet(Math.min(bet * 2, 500)) }} disabled={spinning} variant="outline"
-            className="flex-1 border-[#333] text-gray-400 hover:bg-[#1a1a1a] rounded-xl py-5 text-xs font-bold">
-            BET MAX
-          </Button>
+          <button onClick={toggleAuto}
+            className={`flex-1 rounded-xl py-5 font-bold text-sm transition-all ${autoOn ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'bg-[#1a1a1a] border border-[#333] text-gray-400 hover:text-white hover:bg-[#222]'}`}>
+            {autoOn ? '⏹ Стоп' : '🔁 Авто'}
+          </button>
+          <button onClick={doSpin} disabled={spinning}
+            className="flex-[2] bg-gradient-to-r from-violet-600 to-purple-700 hover:from-violet-500 hover:to-purple-600 disabled:opacity-50 text-white rounded-xl py-5 font-black text-xl transition-all active:scale-95 shadow-xl shadow-violet-900/50">
+            {spinning ? '🌀' : '▶ SPIN'}
+          </button>
+          <button onClick={() => setBet(BETS[BETS.length-1])} disabled={spinning} className="flex-1 bg-[#1a1a1a] border border-[#333] text-gray-400 hover:text-white rounded-xl py-5 text-xs font-bold hover:bg-[#222] disabled:opacity-40 transition-all">
+            MAX<br/>BET
+          </button>
         </div>
       </div>
     </div>
