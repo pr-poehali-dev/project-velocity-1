@@ -1,7 +1,10 @@
 import { ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useNavigate } from "react-router-dom"
 
 export function Header() {
+  const navigate = useNavigate()
+
   return (
     <header className="flex items-center justify-between px-8 py-4">
       <div className="flex items-center gap-2">
@@ -30,6 +33,7 @@ export function Header() {
       </nav>
 
       <Button
+        onClick={() => navigate('/auth')}
         variant="outline"
         className="rounded-full border-violet-500 text-violet-400 hover:bg-violet-500/10 hover:text-violet-300 bg-transparent"
       >
