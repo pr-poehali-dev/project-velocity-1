@@ -6,10 +6,12 @@ import Icon from '@/components/ui/icon'
 
 const methods = [
   { id: 'card', label: 'Банковская карта', icon: '💳', fee: 'Без комиссии', time: 'Мгновенно' },
-  { id: 'crypto', label: 'Криптовалюта', icon: '₿', fee: 'Без комиссии', time: '~10 мин' },
+  { id: 'crypto', label: 'CryptoBot', icon: '₿', fee: 'Без комиссии', time: 'Мгновенно' },
   { id: 'qiwi', label: 'QIWI кошелёк', icon: '🥝', fee: '1%', time: 'Мгновенно' },
   { id: 'sbp', label: 'СБП / Перевод', icon: '🏦', fee: 'Без комиссии', time: 'До 5 мин' },
 ]
+
+const CRYPTO_BOT_ID = 'IV47493667'
 
 const history = [
   { type: 'deposit', label: 'Пополнение', amount: '+5 000 ₽', date: '24 мар', color: 'text-green-400' },
@@ -99,32 +101,79 @@ export function WalletTab() {
         ))}
       </div>
 
-      {/* Сумма */}
-      <div className="mb-4">
-        <label className="text-xs text-gray-400 mb-2 block">Сумма</label>
-        <div className="flex items-center bg-[#1a1a1a] border border-[#333] rounded-xl px-4 py-3 focus-within:border-violet-500">
-          <span className="text-gray-500 mr-2">₽</span>
-          <Input
-            type="number"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            placeholder="0"
-            className="bg-transparent border-0 p-0 text-white placeholder-gray-600 text-lg font-semibold focus-visible:ring-0"
-          />
-        </div>
-        <div className="flex gap-2 mt-2">
-          {['500', '1000', '2000', '5000'].map((v) => (
-            <button key={v} onClick={() => setAmount(v)} className="flex-1 text-xs border border-[#333] rounded-lg py-1.5 text-gray-400 hover:border-violet-500/50 hover:text-violet-400 transition-colors">
-              +{v}
-            </button>
-          ))}
-        </div>
-        {activeMode === 'deposit' && parseInt(amount) >= 1500 && (
-          <p className="text-yellow-400 text-xs mt-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2">
-            🎁 Вы получите бонус +5 000 ₽!
+      {/* CryptoBot блок */}
+      {selectedMethod === 'crypto' && activeMode === 'deposit' && (
+        <div className="mb-6 bg-gradient-to-br from-[#0d1f2d] to-[#0a1a26] border border-blue-500/30 rounded-2xl p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-xl">₿</div>
+            <div>
+              <p className="text-white font-bold">CryptoBot</p>
+              <p className="text-gray-400 text-xs">Пополнение через Telegram</p>
+            </div>
+            <span className="ml-auto text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">✓ Мгновенно</span>
+          </div>
+
+          <div className="space-y-2 mb-4">
+            {[
+              { coin: 'USDT', name: 'Tether', color: 'text-green-400' },
+              { coin: 'TON', name: 'Toncoin', color: 'text-blue-400' },
+              { coin: 'BTC', name: 'Bitcoin', color: 'text-orange-400' },
+              { coin: 'ETH', name: 'Ethereum', color: 'text-purple-400' },
+              { coin: 'BNB', name: 'BNB', color: 'text-yellow-400' },
+            ].map((c) => (
+              <div key={c.coin} className="flex items-center justify-between bg-[#0f0f1a] border border-[#1e2a3a] rounded-xl px-3 py-2">
+                <span className={`text-sm font-bold ${c.color}`}>{c.coin}</span>
+                <span className="text-gray-400 text-xs">{c.name}</span>
+              </div>
+            ))}
+          </div>
+
+          <a
+            href={`https://t.me/CryptoBot?start=${CRYPTO_BOT_ID}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl py-3 transition-colors"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.562 8.248l-2.04 9.61c-.148.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12L7.24 14.748l-2.95-.924c-.643-.2-.657-.643.134-.953l11.52-4.44c.537-.194 1.006.13.618.817z"/>
+            </svg>
+            Открыть CryptoBot в Telegram
+          </a>
+
+          <p className="text-gray-600 text-xs text-center mt-3">
+            После оплаты баланс пополнится автоматически
           </p>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Сумма — скрываем для крипты при пополнении */}
+      {!(selectedMethod === 'crypto' && activeMode === 'deposit') && (
+        <div className="mb-4">
+          <label className="text-xs text-gray-400 mb-2 block">Сумма</label>
+          <div className="flex items-center bg-[#1a1a1a] border border-[#333] rounded-xl px-4 py-3 focus-within:border-violet-500">
+            <span className="text-gray-500 mr-2">₽</span>
+            <Input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0"
+              className="bg-transparent border-0 p-0 text-white placeholder-gray-600 text-lg font-semibold focus-visible:ring-0"
+            />
+          </div>
+          <div className="flex gap-2 mt-2">
+            {['500', '1000', '2000', '5000'].map((v) => (
+              <button key={v} onClick={() => setAmount(v)} className="flex-1 text-xs border border-[#333] rounded-lg py-1.5 text-gray-400 hover:border-violet-500/50 hover:text-violet-400 transition-colors">
+                +{v}
+              </button>
+            ))}
+          </div>
+          {activeMode === 'deposit' && parseInt(amount) >= 1500 && (
+            <p className="text-yellow-400 text-xs mt-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2">
+              🎁 Вы получите бонус +5 000 ₽!
+            </p>
+          )}
+        </div>
+      )}
 
       {success && (
         <div className="mb-4 text-sm bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3 text-green-400">
@@ -132,9 +181,11 @@ export function WalletTab() {
         </div>
       )}
 
-      <Button onClick={handleAction} className={`w-full rounded-xl py-5 text-base font-semibold ${activeMode === 'deposit' ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'} text-white`}>
-        {activeMode === 'deposit' ? '💳 Пополнить счёт' : '💸 Вывести средства'}
-      </Button>
+      {!(selectedMethod === 'crypto' && activeMode === 'deposit') && (
+        <Button onClick={handleAction} className={`w-full rounded-xl py-5 text-base font-semibold ${activeMode === 'deposit' ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'} text-white`}>
+          {activeMode === 'deposit' ? '💳 Пополнить счёт' : '💸 Вывести средства'}
+        </Button>
+      )}
 
       {/* История */}
       <div className="mt-8">
